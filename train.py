@@ -39,13 +39,19 @@ class Instructor:
             bert = BertModel.from_pretrained(opt.pretrained_bert_name)
             self.model = opt.model_class(bert, opt).to(opt.device)
         else:
+
+            #tokenizer - 추가적인 토큰화는 안하고, 그냥 space 기준으로 나누기
             tokenizer = build_tokenizer(
                 fnames=[opt.dataset_file['train'], opt.dataset_file['test']],
                 max_seq_len=opt.max_seq_len,
                 dat_fname='{0}_tokenizer.dat'.format(opt.dataset))
+            
+            
             embedding_matrix = build_embedding_matrix(
                 word2idx=tokenizer.word2idx,
                 embed_dim=opt.embed_dim,
+                embed_file = opt.embed_file, #원하는 임베딩 파일 선택
+                word2vec = opt.word2vec,
                 dat_fname='{0}_{1}_embedding_matrix.dat'.format(str(opt.embed_dim), opt.dataset))
             self.model = opt.model_class(embedding_matrix, opt).to(opt.device)
 
@@ -183,7 +189,13 @@ def main():
     # Hyper Parameters
     parser = argparse.ArgumentParser()
     parser.add_argument('--model_name', default='bert_spc', type=str)
-    parser.add_argument('--dataset', default='laptop', type=str, help='twitter, restaurant, laptop')
+
+    #우리의 데이터 추가할 때 --dataset camp에다가 파일 경로도 넣어주기
+    parser.add_argument('--dataset', default='laptop', type=str, help='twitter, restaurant, laptop, camp') 
+    parser.add_argument('--camp_train_file', default='', type=str, help='if camp dataset, input train path') 
+    parser.add_argument('--camp_test_file', default='', type=str, help='if camp dataset, input test path') 
+
+
     parser.add_argument('--optimizer', default='adam', type=str)
     parser.add_argument('--initializer', default='xavier_uniform_', type=str)
     parser.add_argument('--lr', default=2e-5, type=float, help='try 5e-5, 2e-5 for BERT, 1e-3 for others')
@@ -192,7 +204,14 @@ def main():
     parser.add_argument('--num_epoch', default=20, type=int, help='try larger number for non-BERT models')
     parser.add_argument('--batch_size', default=16, type=int, help='try 16, 32, 64 for BERT models')
     parser.add_argument('--log_step', default=10, type=int)
+    
+    #word2vec = true먼저 하고
+    #word2vec 파일 경로 넣어주기
+    parser.add_argument('--word2vec', default=False, type=bool)
+    parser.add_argument('--embed_file', default='', type=str)
+    #캠핑 word2vec의 경우 현재 embed_dim = 200
     parser.add_argument('--embed_dim', default=300, type=int)
+    
     parser.add_argument('--hidden_dim', default=300, type=int)
     parser.add_argument('--bert_dim', default=768, type=int)
     parser.add_argument('--pretrained_bert_name', default='bert-base-uncased', type=str)
@@ -251,6 +270,11 @@ def main():
         'laptop': {
             'train': './datasets/semeval14/Laptops_Train.xml.seg',
             'test': './datasets/semeval14/Laptops_Test_Gold.xml.seg'
+        },
+        #우리의 데이터셋 업로드
+        'camp' : {
+            'train': opt.camp_train_file,
+            'test': opt.camp_test_file
         }
     }
     input_colses = {
