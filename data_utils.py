@@ -10,6 +10,9 @@ import torch
 from torch.utils.data import Dataset
 from transformers import BertTokenizer
 
+import gensim
+from gensim.models import Word2Vec
+
 
 def build_tokenizer(fnames, max_seq_len, dat_fname):
     if os.path.exists(dat_fname):
@@ -21,6 +24,7 @@ def build_tokenizer(fnames, max_seq_len, dat_fname):
             fin = open(fname, 'r', encoding='utf-8', newline='\n', errors='ignore')
             lines = fin.readlines()
             fin.close()
+            #파일 읽어서 aspect랑 양옆 text 추출
             for i in range(0, len(lines), 3):
                 text_left, _, text_right = [s.lower().strip() for s in lines[i].partition("$T$")]
                 aspect = lines[i + 1].lower().strip()
@@ -34,33 +38,46 @@ def build_tokenizer(fnames, max_seq_len, dat_fname):
 
 
 def _load_word_vec(path, word2idx=None, embed_dim=300):
+    #word2idx는 이전 토큰화에서 key=단어, value=인덱스
     fin = open(path, 'r', encoding='utf-8', newline='\n', errors='ignore')
     word_vec = {}
     for line in fin:
         tokens = line.rstrip().split()
         word, vec = ' '.join(tokens[:-embed_dim]), tokens[-embed_dim:]
+
         if word in word2idx.keys():
             word_vec[word] = np.asarray(vec, dtype='float32')
     return word_vec
 
 
-def build_embedding_matrix(word2idx, embed_dim, dat_fname):
+def build_embedding_matrix(word2idx, embed_dim,embed_file, word2vec,dat_fname):
     if os.path.exists(dat_fname):
         print('loading embedding_matrix:', dat_fname)
         embedding_matrix = pickle.load(open(dat_fname, 'rb'))
     else:
         print('loading word vectors...')
         embedding_matrix = np.zeros((len(word2idx) + 2, embed_dim))  # idx 0 and len(word2idx)+1 are all-zeros
-        fname = './glove.twitter.27B/glove.twitter.27B.' + str(embed_dim) + 'd.txt' \
-            if embed_dim != 300 else './glove.42B.300d.txt'
-        word_vec = _load_word_vec(fname, word2idx=word2idx, embed_dim=embed_dim)
-        print('building embedding_matrix:', dat_fname)
-        for word, i in word2idx.items():
-            vec = word_vec.get(word)
-            if vec is not None:
-                # words not found in embedding index will be all-zeros.
-                embedding_matrix[i] = vec
-        pickle.dump(embedding_matrix, open(dat_fname, 'wb'))
+        fname = embed_file #주어진 임베딩 파일
+
+        if word2vec:
+          model = Word2Vec.load(fname)
+          print('building embedding_matrix:', dat_fname)
+          for word, i in word2idx.items():
+              try: vec = model[word]
+              except: vec = np.zeros(embed_dim) # words not found in embedding index will be all-zeros.
+              embedding_matrix[i] = vec
+          pickle.dump(embedding_matrix, open(dat_fname, 'wb'))
+
+
+        else:          
+          word_vec = _load_word_vec(fname, word2idx=word2idx, embed_dim=embed_dim)
+          print('building embedding_matrix:', dat_fname)
+          for word, i in word2idx.items():
+              vec = word_vec.get(word)
+              if vec is not None:
+                  # words not found in embedding index will be all-zeros.
+                  embedding_matrix[i] = vec
+          pickle.dump(embedding_matrix, open(dat_fname, 'wb'))
     return embedding_matrix
 
 
