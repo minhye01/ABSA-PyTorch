@@ -20,8 +20,7 @@ class BERT_SPC(nn.Module):
         outputs = self.bert(text_bert_indices, token_type_ids=bert_segments_ids)
         pooled_output = outputs.pooler_output
         #_, pooled_output = self.bert(text_bert_indices, token_type_ids=bert_segments_ids)
-        #pooled_output = self.dropout(pooled_output)
         #여기 코드 고쳤음
-        
+        pooled_output = self.dropout(pooled_output)
         logits = self.dense(pooled_output)
         return logits
