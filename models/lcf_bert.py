@@ -96,12 +96,25 @@ class LCF_BERT(nn.Module):
         text_local_indices = inputs[2]
         aspect_indices = inputs[3]
 
+        '''
         bert_spc_out, _ = self.bert_spc(text_bert_indices, token_type_ids=bert_segments_ids)
         bert_spc_out = self.dropout(bert_spc_out)
 
         bert_local_out, _ = self.bert_local(text_local_indices)
         bert_local_out = self.dropout(bert_local_out)
+        '''
 
+        #여기 고침
+        bert_spc_out = self.bert_spc(text_bert_indices, token_type_ids=bert_segments_ids)
+        bert_spc_out = bert_spc_out.last_hidden_state
+        bert_spc_out = self.dropout(bert_spc_out)
+
+        #여기 고침
+        bert_local_out = self.bert_local(text_local_indices)
+        bert_local_out = bert_local_out.last_hidden_state
+        bert_local_out = self.dropout(bert_local_out)
+
+        
         if self.opt.local_context_focus == 'cdm':
             masked_local_text_vec = self.feature_dynamic_mask(text_local_indices, aspect_indices)
             bert_local_out = torch.mul(bert_local_out, masked_local_text_vec)
